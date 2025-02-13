@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snak3D</title>
+    <title>SNAK3D</title>
+    <link rel="icon" type="image/x-icon" href="snakeicon.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body {
@@ -21,7 +22,8 @@
         }
 
         .menu,
-        .levels {
+        .levels,
+        .end-screen {
             position: absolute;
             width: 100%;
             height: 100%;
@@ -36,47 +38,112 @@
         }
 
         button {
-            padding: 15px 30px;
-            font-size: 20px;
-            margin: 10px;
+            padding: 15px 40px;
+            font-size: 30px;
+            margin: 15px;
             cursor: pointer;
-            background-color: white;
+            background: rgba(255, 255, 255, 0.2);
             border: none;
             border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px black;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        h1 {
+            font-size: 50px;
+            text-transform: uppercase;
+            text-shadow: 3px 3px 6px black;
+            margin-bottom: 20px;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            justify-items: center;
+            width: 50%;
         }
     </style>
 </head>
 
 <body>
-
     <div class="menu" id="menu">
         <h1>Snak3D</h1>
-        <button onclick="showLevels()">Levels</button>
+        <button onclick="showLevels()">Play</button>
         <button onclick="quitGame()">Quit</button>
     </div>
-
     <div class="levels hidden" id="levels">
         <h1>Select Level</h1>
-        <button onclick="startGame(1)">Level 1</button>
-        <button onclick="startGame(2)">Level 2</button>
-        <button onclick="startGame(3)">Level 3</button>
+        <div class="grid-container">
+            <button onclick="startGame(1)">Level 1</button>
+            <button onclick="startGame(2)">Level 2</button>
+            <button onclick="startGame(3)">Level 3</button>
+            <button onclick="startGame(4)">Level 4</button>
+            <button onclick="startGame(5)">Level 5</button>
+            <button onclick="startGame(6)">Level 6</button>
+        </div>
         <button onclick="backToMenu()">Back</button>
     </div>
-
+    <div class="end-screen hidden" id="end-screen">
+        <h1 id="end-message">Game Over!</h1>
+        <button onclick="restartLevel()">Try Again</button>
+        <button onclick="showLevels()">Back to Levels</button>
+    </div>
     <script>
-        let scene, camera, renderer;
-        let snake = [], food, level;
+        let scene, camera, renderer, grid, light;
+        let snake = [], food, orangeFood = null, level;
         let direction = new THREE.Vector3(1, 0, 0);
         let clock = new THREE.Clock();
         let gameOver = false;
         let foodCount = 0;
+        let speed = 0.2;
+        let opacity = 0.85;
+        let lastMoveTime = 0;
+        const moveIntervalBase = 200;
+        let moveInterval = moveIntervalBase;
+
+        document.addEventListener('keydown', handleKeyDown);
+
+        function handleKeyDown(event) {
+            if (gameOver) return;
+            const key = event.key;
+
+            if (level === 3) {
+                if (key === "ArrowUp" && direction.z === 0) {
+                    direction.set(0, 0, 1);
+                } else if (key === "ArrowDown" && direction.z === 0) {
+                    direction.set(0, 0, -1);
+                } else if (key === "ArrowLeft" && direction.x === 0) {
+                    direction.set(1, 0, 0);
+                } else if (key === "ArrowRight" && direction.x === 0) {
+                    direction.set(-1, 0, 0);
+                }
+            } else {
+                if (key === "ArrowUp" && direction.z === 0) {
+                    direction.set(0, 0, -1);
+                } else if (key === "ArrowDown" && direction.z === 0) {
+                    direction.set(0, 0, 1);
+                } else if (key === "ArrowLeft" && direction.x === 0) {
+                    direction.set(-1, 0, 0);
+                } else if (key === "ArrowRight" && direction.x === 0) {
+                    direction.set(1, 0, 0);
+                }
+            }
+        }
 
         function showLevels() {
+            cleanupGame();
             document.getElementById("menu").classList.add("hidden");
             document.getElementById("levels").classList.remove("hidden");
         }
 
         function backToMenu() {
+            cleanupGame();
             document.getElementById("levels").classList.add("hidden");
             document.getElementById("menu").classList.remove("hidden");
         }
@@ -86,9 +153,12 @@
         }
 
         function startGame(selectedLevel) {
+            cleanupGame();
             level = selectedLevel;
             document.getElementById("menu").classList.add("hidden");
             document.getElementById("levels").classList.add("hidden");
+            document.getElementById("end-screen").classList.add("hidden");
+
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer();
@@ -99,18 +169,31 @@
             foodCount = 0;
             gameOver = false;
             direction.set(1, 0, 0);
+            orangeFood = null;
+
+            if (level >= 4) moveInterval = moveIntervalBase * 0.75;
+            if (level >= 5) moveInterval = moveIntervalBase * 0.5;
+            opacity = level >= 5 ? 0.2 : 0.85;
 
             let geometry = new THREE.BoxGeometry(1, 1, 1);
-            let material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            let material = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: opacity });
             let head = new THREE.Mesh(geometry, material);
             head.position.set(0, 0, 0);
             scene.add(head);
             snake.push(head);
 
-            let foodMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            let foodMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: opacity });
             food = new THREE.Mesh(geometry, foodMaterial);
             spawnFood();
             scene.add(food);
+
+            grid = new THREE.GridHelper(20, 20, 0xffffff, 0xffffff);
+            grid.material.opacity = 0.1;
+            grid.material.transparent = true;
+            scene.add(grid);
+
+            light = new THREE.AmbientLight(0xffffff, 1);
+            scene.add(light);
 
             camera.position.set(0, 10, 10);
             camera.lookAt(0, 0, 0);
@@ -124,22 +207,54 @@
                 0,
                 Math.floor(Math.random() * 10 - 5)
             );
-            if (level === 2 && Math.random() < 0.3) {
-                food.material.color.set(0xffa500); 
-            } else {
-                food.material.color.set(0xff0000); 
+
+            if (level === 2 || level === 6) {
+                if (!orangeFood) {
+                    orangeFood = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffa500, transparent: true, opacity: opacity }));
+                    scene.add(orangeFood);
+                }
+                orangeFood.position.set(
+                    Math.floor(Math.random() * 10 - 5),
+                    0,
+                    Math.floor(Math.random() * 10 - 5)
+                );
             }
         }
 
         function moveSnake() {
+            const currentTime = performance.now();
+            if (currentTime - lastMoveTime < moveInterval) return;
+            lastMoveTime = currentTime;
+
             if (gameOver) return;
 
             let head = snake[0];
             let newPos = head.position.clone().add(direction);
             for (let segment of snake) {
                 if (segment.position.equals(newPos)) {
-                    alert("Game Over!");
-                    gameOver = true;
+                    endGame("Game Over!");
+                    return;
+                }
+            }
+            if (orangeFood && head.position.equals(orangeFood.position)) {
+                endGame("Game Over! You ate the wrong food.");
+                return;
+            }
+            if (head.position.equals(food.position)) {
+                foodCount++;
+                spawnFood();
+
+                let newSegment = new THREE.Mesh(
+                    new THREE.BoxGeometry(1, 1, 1),
+                    new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: opacity })
+                );
+                newSegment.position.copy(snake[snake.length - 1].position);
+                snake.push(newSegment);
+                scene.add(newSegment);
+
+                let targetFoodCount = level <= 3 ? 10 : 15;
+                if (foodCount >= targetFoodCount) {
+                    endGame("You Win!");
                     return;
                 }
             }
@@ -147,50 +262,38 @@
                 snake[i].position.copy(snake[i - 1].position);
             }
             head.position.copy(newPos);
-            if (head.position.equals(food.position)) {
-                if (level === 2 && food.material.color.getHex() === 0xffa500) {
-                    alert("GG, you ate an orange");
-                    gameOver = true;
-                    return;
-                }
-
-                let newSegment = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-                newSegment.position.copy(snake[snake.length - 1].position);
-                scene.add(newSegment);
-                snake.push(newSegment);
-                foodCount++;
-                spawnFood();
-
-                if ((level === 1 || level === 2) && foodCount >= 20) {
-                    alert("GG, You Win!");
-                    gameOver = true;
-                    return;
-                }
-            }
         }
 
-        document.addEventListener("keydown", (event) => {
-            if (level === 3) {
-                if (event.key === "ArrowUp") direction.set(0, 0, 1);
-                if (event.key === "ArrowDown") direction.set(0, 0, -1);
-                if (event.key === "ArrowLeft") direction.set(1, 0, 0);
-                if (event.key === "ArrowRight") direction.set(-1, 0, 0);
-            } else {
-                if (event.key === "ArrowUp") direction.set(0, 0, -1);
-                if (event.key === "ArrowDown") direction.set(0, 0, 1);
-                if (event.key === "ArrowLeft") direction.set(-1, 0, 0);
-                if (event.key === "ArrowRight") direction.set(1, 0, 0);
+        function cleanupGame() {
+            if (renderer) {
+                document.body.removeChild(renderer.domElement);
             }
-        });
+            scene = null;
+            camera = null;
+            renderer = null;
+            snake = [];
+            food = null;
+            orangeFood = null;
+        }
+
+        function restartLevel() {
+            startGame(level);
+        }
+
+        function endGame(message) {
+            gameOver = true;
+            document.getElementById("end-message").innerText = message;
+            document.getElementById("end-screen").classList.remove("hidden");
+        }
 
         function animate() {
             requestAnimationFrame(animate);
-            if (clock.getElapsedTime() > 0.2) {
+            if (!gameOver) {
                 moveSnake();
-                clock.start();
             }
             renderer.render(scene, camera);
         }
     </script>
 </body>
+
 </html>
