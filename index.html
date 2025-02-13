@@ -75,7 +75,9 @@
     <div class="menu" id="menu">
         <h1>Snak3D</h1>
         <button onclick="showLevels()">Play</button>
-        <button onclick="quitGame()">Quit</button>
+        <button onclick="location.replace('about:blank')">Quit</button>
+
+
     </div>
     <div class="levels hidden" id="levels">
         <h1>Select Level</h1>
@@ -92,7 +94,7 @@
     <div class="end-screen hidden" id="end-screen">
         <h1 id="end-message">Game Over!</h1>
         <button onclick="restartLevel()">Try Again</button>
-        <button onclick="showLevels()">Back to Levels</button>
+        <button onclick="location.reload()">Back to Levels</button>
     </div>
     <script>
         let scene, camera, renderer, grid, light;
