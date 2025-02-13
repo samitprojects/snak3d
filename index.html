@@ -108,9 +108,7 @@
         let lastMoveTime = 0;
         const moveIntervalBase = 200;
         let moveInterval = moveIntervalBase;
-
         document.addEventListener('keydown', handleKeyDown);
-
         function handleKeyDown(event) {
             if (gameOver) return;
             const key = event.key;
@@ -297,5 +295,4 @@
         }
     </script>
 </body>
-
 </html>
